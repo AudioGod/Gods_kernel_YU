@@ -31,6 +31,10 @@
 #include <linux/qpnp/power-on.h>
 #include "yl_pm8916_vbus.h"
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 struct bq24157_chip {
 	struct device         *dev;
 	struct i2c_client      *client;
@@ -1314,7 +1318,7 @@ static void bq24157_external_power_changed(struct power_supply *psy)
 				struct bq24157_chip, batt_psy);
 	union power_supply_propval prop = {0,};
 	int rc;
-	
+
 	if (!chip) {
 		dev_err(chip->dev,"=======no\n");
 		return;
@@ -1336,7 +1340,23 @@ static void bq24157_external_power_changed(struct power_supply *psy)
 		dev_err(chip->dev,
 			"could not read USB current_max property, rc=%d\n", rc);
 	else
-		chip->set_ivbus_max = prop.intval / 1000;
+	{
+#ifdef CONFIG_FORCE_FAST_CHARGE
+        if(force_fast_charge == 1 || force_fast_charge == 2){
+		    chip->set_ivbus_max = fast_charge_level;
+		    pr_info("force fast charge = %d", force_fast_charge);
+		    pr_info("Fast charging is ON!!!\n");
+		   }
+		else if(force_fast_charge == 0){
+		    pr_info("force fast charge = %d", force_fast_charge);
+		    chip->set_ivbus_max = prop.intval / 1000;
+		    pr_info("Fast charging is OFF!!!\n");
+		   }
+        pr_info("Using fast charge level of %d",fast_charge_level);
+#else
+        chip->set_ivbus_max = prop.intval / 1000;
+#endif
+	}
 
 
 	rc = bq24157_set_ivbus_max(chip, chip->set_ivbus_max); //VBUS CURRENT
@@ -1425,9 +1445,13 @@ static int bq24157_parse_dt(struct bq24157_chip *chip)
 	if (rc < 0)
 		return -EINVAL;
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	chip->chg_curr_max = fast_charge_level;
+#else
 	rc = of_property_read_u32(node, "yl,max-charge-current-mA", &chip->chg_curr_max);
 	if (rc < 0)
 		return -EINVAL;
+#endif
 	chip->chg_curr_now = chip->chg_curr_max;
 	
 	rc = of_property_read_u32(node, "yl,term-current-mA", &chip->iterm_ma);
