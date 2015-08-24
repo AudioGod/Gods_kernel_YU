@@ -175,6 +175,12 @@ config CPU_FREQ_DEFAULT_GOV_BIOSHOCK
 	select CPU_FREQ_GOV_BIOSHOCK
 	help
 	  Default governor of BioShock kernel
+	  
+config CPU_FREQ_DEFAULT_GOV_PEGASUSQ
+	bool "pegasusq"
+	select CPU_FREQ_GOV_PEGASUSQ
+	help
+	Use the CPUFreq governor 'pegasusq' as default.	  
 
 endchoice
 
@@ -303,6 +309,9 @@ config CPU_FREQ_GOV_BIOSHOCK
 	depends on CPU_FREQ
 	help
 	  'bioshock' - More aggressive version of conservative
+	  
+config CPU_FREQ_GOV_PEGASUSQ
+	tristate "'pegasusq' cpufreq policy governor"
 
 config CPU_BOOST
 	tristate "Event base short term CPU freq boost"
