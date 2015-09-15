@@ -32,10 +32,12 @@ modules.builtin
 *.lzo
 *.patch
 *.gcno
+*.img
 build_tomato.sh
 dtbToolCM
-build_lettuce
-build.sh
+build_lettuce.sh
+tomato.sh
+phoria.sh
 #
 # Top-level generic files
 #
@@ -48,7 +50,8 @@ build.sh
 /Module.markers
 /Module.symvers
 /modules_tomato
-/output_tomato
+/out_tomato
+/out_lettuce
 #
 # Debian directory (make deb-pkg)
 #
