@@ -148,11 +148,8 @@ config ARCH_MSM8916
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 	select MSM_RPM_LOG
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
-<<<<<<< HEAD
-=======
 	select RCU_BOOST if DEBUG_KMEMLEAK
 	select HAS_MACH_MEMUTILS
->>>>>>> 8d67560... msm: memutils: memcpy, memmove, copy_page optimization
 
 config ARCH_FSM9900
 	bool "FSM9900"
