@@ -33,8 +33,6 @@ modules.builtin
 *.patch
 *.gcno
 *.img
-build_tomato.sh
-dtbToolCM
 build_lettuce.sh
 tomato.sh
 phoria.sh
