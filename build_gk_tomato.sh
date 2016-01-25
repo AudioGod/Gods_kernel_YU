@@ -17,7 +17,7 @@ DTBIMAGE="dtb"
 DEFCONFIG="gk_tomato_defconfig"
 
 #GK Kernel Details
-VER="-M-T17-tomato-$(date +"%Y%m%d")"
+VER="-MR-1.3-tomato-$(date +"%Y%m%d")"
 GK_VER="$BASE_GK_VER$VER$TC"
 
 # Vars
@@ -45,7 +45,9 @@ ZIMAGE_DIR="$KERNEL_DIR/arch/arm64/boot"
 function clean_all {
 		rm -rf $MODULES_DIR/*
 		rm -rf $ZIP_MOVE/*
+		rm -rf ${HOME}/kernels/Gods_kernel_YU/arch/arm64/boot/dt.img
 		cd ${HOME}/kernels/GK-Tomato-AnyKernel2/
+		rm -rf zImage
 		rm -rf $DTBIMAGE
 		rm -rf $KERNEL
 		git reset --hard > /dev/null 2>&1
