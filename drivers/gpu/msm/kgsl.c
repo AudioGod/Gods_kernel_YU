@@ -960,24 +960,34 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 {
 	mutex_lock(&kgsl_driver.process_mutex);
 
+	if (--private->fd_count > 0) {
+		mutex_unlock(&kgsl_driver.process_mutex);
+		kgsl_process_private_put(private);
+		return;
+	}
+
 	/*
 	 * If this is the last file on the process take down the debug
 	 * directories and garbage collect any outstanding resources
 	 */
 
-	if (--private->fd_count == 0) {
-		kgsl_process_uninit_sysfs(private);
-		debugfs_remove_recursive(private->debug_root);
+	kgsl_process_uninit_sysfs(private);
+	debugfs_remove_recursive(private->debug_root);
 
-		process_release_memory(dev_priv, private);
-		process_release_sync_sources(private);
+	process_release_sync_sources(private);
 
-		/* Remove the process struct from the master list */
-		list_del(&private->list);
-	}
+	/* Remove the process struct from the master list */
+	list_del(&private->list);
+
+	/*
+	 * Unlock the mutex before releasing the memory - this prevents a
+	 * deadlock with the IOMMU mutex if a page fault occurs
+	 */
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	process_release_memory(dev_priv, private);
 
 	kgsl_process_private_put(private);
-	mutex_unlock(&kgsl_driver.process_mutex);
 }
 
 
@@ -1035,8 +1045,7 @@ static int kgsl_close_device(struct kgsl_device *device)
 		/* Fail if the wait times out */
 		BUG_ON(atomic_read(&device->active_cnt) > 0);
 
-		result = device->ftbl->stop(device);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+		result = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	}
 	mutex_unlock(&device->mutex);
 	return result;
@@ -1127,8 +1136,10 @@ static int kgsl_open_device(struct kgsl_device *device)
 	}
 	device->open_count++;
 err:
-	if (result)
+	if (result) {
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 		atomic_dec(&device->active_cnt);
+	}
 
 	mutex_unlock(&device->mutex);
 	return result;
