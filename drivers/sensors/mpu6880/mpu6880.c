@@ -43,6 +43,8 @@
 #include <linux/sensors/mpu6880.h>
 #include <linux/sensors/sensparams.h>
 
+#define CONFIG_YL_SENSORS_M 1
+
 #define MPU_DEVICE_NAME "mpu6880"
 #define MPU6880_POLL_INTERVAL                  200
 #define MPU6880_POLL_INTERVAL_MIN       1
@@ -327,6 +329,7 @@ static void mpu6880_gyro_disable(struct mpu6880_device *dev)
     mutex_unlock(&mpu->mutex);
 }
 
+#ifndef CONFIG_YL_SENSORS_M
 static void mpu6880_reset_delay(struct mpu6880_device *dev)
 {
     struct mpu6880_device *mpu =dev;
@@ -336,6 +339,7 @@ static void mpu6880_reset_delay(struct mpu6880_device *dev)
     mpu->input_dev->poll_interval = mpu->poll_time;
     mutex_unlock(&mpu->mutex);
 }
+#endif
 
 static int mpu6880_accel_gyro_calibration(struct mpu6880_device *dev)
 {
@@ -499,7 +503,11 @@ static ssize_t mpu6880_accel_delay_store(struct device *dev, struct device_attri
 
     mpu->accel_poll = val;
 
+    mpu->input_dev->poll_interval =  mpu->accel_poll;
+
+#ifndef CONFIG_YL_SENSORS_M
     mpu6880_reset_delay(mpu);
+#endif
 
     return count;
 }
@@ -581,8 +589,11 @@ static ssize_t mpu6880_gyro_delay_store(struct device *dev, struct device_attrib
     inv_info("in %s: data is %ld\n",__func__,  val);
 
     mpu->gyro_poll = val;
+    mpu->input_dev_gyro->poll_interval =  mpu->gyro_poll;
 
+#ifndef CONFIG_YL_SENSORS_M
     mpu6880_reset_delay(mpu);
+#endif
 
     return count;
 }
@@ -616,6 +627,7 @@ static ssize_t mpu6880_device_delay_store(struct device *dev, struct device_attr
 
     mpu->poll_time = val;
     mpu->input_dev->poll_interval = mpu->poll_time;
+    mpu->input_dev_gyro->poll_interval = mpu->poll_time;
 
     return count;
 }
@@ -848,6 +860,7 @@ static void mpu6880_report_value(struct mpu6880_device *device)
         input_sync(dev->input_dev->input);
     }
 
+#ifndef CONFIG_YL_SENSORS_M
     if (dev->gyro_status) {
         input_report_abs(dev->input_dev->input,ABS_RX, dev->gyro_data[0]-dev->gyro_offset[0]);
         input_report_abs(dev->input_dev->input, ABS_RY, dev->gyro_data[1]-dev->gyro_offset[1]);
@@ -856,7 +869,27 @@ static void mpu6880_report_value(struct mpu6880_device *device)
         input_event(dev->input_dev->input, EV_SYN, SYN_TIME_NSEC, ktime_to_timespec(timestamp).tv_nsec);
         input_sync(dev->input_dev->input);
     }
+#endif
 }
+
+#ifdef CONFIG_YL_SENSORS_M
+static void mpu6880_report_gyro_value(struct mpu6880_device *device)
+{
+    struct mpu6880_device *dev = device;
+    ktime_t timestamp;
+
+    timestamp = ktime_get();
+
+    if (dev->gyro_status) {
+        input_report_abs(dev->input_dev_gyro->input,ABS_RX, dev->gyro_data[0]-dev->gyro_offset[0]);
+        input_report_abs(dev->input_dev_gyro->input, ABS_RY, dev->gyro_data[1]-dev->gyro_offset[1]);
+        input_report_abs(dev->input_dev_gyro->input,ABS_RZ, dev->gyro_data[2]-dev->gyro_offset[2]);
+        input_event(dev->input_dev_gyro->input, EV_SYN, SYN_TIME_SEC, ktime_to_timespec(timestamp).tv_sec);
+        input_event(dev->input_dev_gyro->input, EV_SYN, SYN_TIME_NSEC, ktime_to_timespec(timestamp).tv_nsec);
+        input_sync(dev->input_dev_gyro->input);
+    }
+}
+#endif
 
 static void mma6880_poll(struct input_polled_dev *dev)
 {
@@ -867,6 +900,16 @@ static void mma6880_poll(struct input_polled_dev *dev)
     mpu6880_report_value(mpu);
 
 }
+#ifdef CONFIG_YL_SENSORS_M
+static void mma6880_poll_gyro(struct input_polled_dev *dev)
+{
+    struct mpu6880_device *mpu = (struct mpu6880_device *)dev->private;
+
+    mpu6880_read_sensors_data(mpu);
+
+    mpu6880_report_gyro_value(mpu);
+}
+#endif
 
 static int mpu6880_device_init(struct i2c_client *client)
 {
@@ -998,6 +1041,18 @@ printk(KERN_ERR"MPdddd faidddl\n");
     printk(KERN_ERR"MPdddd fail\n");
     mpu->input_dev->private = mpu;
 
+#ifdef CONFIG_YL_SENSORS_M
+    mpu->input_dev_gyro = input_allocate_polled_device();
+    if (!mpu->input_dev_gyro) {
+        err = -ENOMEM;
+        dev_err(&mpu->client->dev,
+            "input device gyro allocate failed\n");
+        goto exit_input_dev_alloc_failed;
+    }
+    printk(KERN_ERR"MPdddd fail\n");
+    mpu->input_dev_gyro->private = mpu;
+#endif
+
 printk(KERN_ERR"MPdddd ttaoddl\n");
     mpu->input_dev->input->name = MPU_DEVICE_NAME;
     mpu->input_dev->input->phys = MPU_DEVICE_NAME "/input0";
@@ -1010,6 +1065,18 @@ printk(KERN_ERR"MPdddd ttaoddl\n");
     mpu->accel_poll = MPU6880_POLL_INTERVAL;
     mpu->gyro_poll = MPU6880_POLL_INTERVAL;
 
+#ifdef CONFIG_YL_SENSORS_M
+    mpu->input_dev_gyro->input->name = MPU_DEVICE_NAME"-gyro";
+    mpu->input_dev_gyro->input->phys = MPU_DEVICE_NAME "/input1";
+    mpu->input_dev_gyro->input->id.bustype   = BUS_I2C;
+    mpu->input_dev_gyro->input->dev.parent = &mpu->client->dev;
+    mpu->input_dev_gyro->poll        = mma6880_poll_gyro;
+    mpu->input_dev_gyro->poll_interval   = MPU6880_POLL_INTERVAL;
+    mpu->input_dev_gyro->poll_interval_max   = MPU6880_POLL_INTERVAL_MAX;
+    mpu->input_dev_gyro->poll_interval_min   = MPU6880_POLL_INTERVAL_MIN;
+    mpu->input_dev_gyro->input->evbit[0] = BIT_MASK(EV_ABS);
+#endif
+
     //set_bit(EV_ABS, mpu->input_dev->input->evbit);
   mpu->input_dev->input->evbit[0] = BIT_MASK(EV_ABS);
     /* x-axis acceleration */
@@ -1018,13 +1085,35 @@ printk(KERN_ERR"MPdddd ttaoddl\n");
     input_set_abs_params(mpu->input_dev->input, ABS_Y, -32768, 32767, 0, 0);
     /* z-axis acceleration */
     input_set_abs_params(mpu->input_dev->input, ABS_Z, -32768, 32767, 0, 0);
-
+#ifdef CONFIG_YL_SENSORS_M
     /* Gyro X-axis */
+    input_set_abs_params(mpu->input_dev_gyro->input, ABS_RX, -32768, 32767, 0, 0);
+    /* Gyro Y-axis */
+    input_set_abs_params(mpu->input_dev_gyro->input,  ABS_RY, -32768, 32767, 0, 0);
+    /* Gyro Z-axis */
+    input_set_abs_params(mpu->input_dev_gyro->input, ABS_RZ, -32768, 32767, 0, 0);
+    err = input_register_polled_device(mpu->input_dev_gyro);
+    if (err) {
+        pr_err("mpu6880_probe: Unable to register input device: %s\n",
+                     mpu->input_dev_gyro->input->name);
+        goto exit_input_register_device_failed;
+    }
+
+    if (sysfs_create_group(&mpu->input_dev_gyro->input->dev.kobj,
+                   &mpu6880_attrs))
+    {
+        printk(KERN_ERR"%s create sysfile error\n", __func__);
+        goto exit_input_register_device_failed;
+    }
+#else
+  /* Gyro X-axis */
     input_set_abs_params(mpu->input_dev->input, ABS_RX, -32768, 32767, 0, 0);
     /* Gyro Y-axis */
     input_set_abs_params(mpu->input_dev->input,  ABS_RY, -32768, 32767, 0, 0);
     /* Gyro Z-axis */
     input_set_abs_params(mpu->input_dev->input, ABS_RZ, -32768, 32767, 0, 0);
+#endif
+
 printk(KERN_ERR"MPdddd ddddd\n");
     err = input_register_polled_device(mpu->input_dev);
     if (err) {

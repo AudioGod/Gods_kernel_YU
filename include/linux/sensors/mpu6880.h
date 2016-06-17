@@ -67,6 +67,7 @@ struct mpu6880_device
 {
     struct i2c_client *client;
     struct input_polled_dev *input_dev;
+    struct input_polled_dev *input_dev_gyro;
     struct mutex mutex;
     short  accel_status;
     short  gyro_status;
