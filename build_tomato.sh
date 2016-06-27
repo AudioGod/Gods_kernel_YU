@@ -1,4 +1,5 @@
  #
+ # Copyright © 2014, Varun Chitre "varun.chitre15" <varun.chitre15@gmail.com>
  # Copyright © 2014, Audiogod@sonic-developers.com
  #
  # Custom build script
