@@ -847,9 +847,8 @@ static void mpu6880_read_sensors_data(struct mpu6880_device *device)
 static void mpu6880_report_value(struct mpu6880_device *device)
 {
     struct mpu6880_device *dev = device;
-    ktime_t timestamp;
 
-    timestamp = ktime_get();
+    ktime_t timestamp = ktime_get_boottime();
 
     if (dev->accel_status) {
         input_report_abs(dev->input_dev->input,ABS_X,   dev->accel_data[0]-dev->accel_offset[0]);
