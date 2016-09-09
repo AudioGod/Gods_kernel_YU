@@ -17,7 +17,7 @@ DTBIMAGE="dtb"
 DEFCONFIG="gk_tomato_defconfig"
 
 #GK Kernel Details
-VER="-MR-2.0-tomato-$(date +"%Y%m%d")"
+VER="-MR-3.0-tomato-$(date +"%Y%m%d")"
 GK_VER="$BASE_GK_VER$VER$TC"
 
 # Vars
